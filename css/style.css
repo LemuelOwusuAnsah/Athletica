@@ -192,6 +192,29 @@
     color: #2ecc71;
 }
 
+.shortcuts-hint {
+    text-align: center;
+    font-size: 0.7rem;
+    color: #6c757d;
+    margin-top: 8px;
+    opacity: 0.7;
+}
+
+[data-bs-theme="dark"] .shortcuts-hint {
+    color: #94a3b8;
+}
+
+#lapCountBadge {
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    background-color: rgba(255,255,255,0.2) !important;
+    color: #fff !important;
+}
+
+[data-bs-theme="dark"] #lapCountBadge {
+    background-color: rgba(255,255,255,0.15) !important;
+}
+
 @media (max-width: 576px) {
     .time-display {
         font-size: 2.8rem;
@@ -210,6 +233,9 @@
     }
     .lap-table-container {
         max-height: 180px;
+    }
+    .shortcuts-hint {
+        font-size: 0.6rem;
     }
 }
 

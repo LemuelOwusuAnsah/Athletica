@@ -8,8 +8,10 @@
     const fastestLap = document.getElementById('fastestLap');
     const slowestLap = document.getElementById('slowestLap');
     const copyLapsBtn = document.getElementById('copyLapsBtn');
+    const shareResultsBtn = document.getElementById('shareResultsBtn');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
-    const soundToggle = document.getElementById('soundToggle');
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const lapCountBadge = document.getElementById('lapCountBadge');
 
     let isRunning = false;
     let startTime = 0;
@@ -17,9 +19,10 @@
     let timerInterval = null;
     let laps = [];
     let lapStartTime = 0;
-    let isSoundOn = true;
+    let soundEnabled = true;
+    let fullscreenActive = false;
 
-    const STORAGE_KEY = 'calendria_stopwatch_data';
+    const STORAGE_KEY = 'athletica_stopwatch_data';
 
     function loadState() {
         try {
@@ -28,6 +31,9 @@
                 const data = JSON.parse(saved);
                 elapsedTime = data.elapsedTime || 0;
                 laps = data.laps || [];
+                lapStartTime = laps.length > 0 ? laps.reduce(function(acc, lap) {
+                    return acc + lap.lapTime;
+                }, 0) : 0;
                 if (data.isRunning) {
                     startTime = Date.now() - elapsedTime;
                     isRunning = true;
@@ -37,6 +43,7 @@
                 updateDisplay();
                 updateButtons();
                 updateStats();
+                updateLapCountBadge();
             }
         } catch (e) {
             console.log('No saved state');
@@ -97,6 +104,11 @@
             lapBtn.disabled = true;
         }
         copyLapsBtn.disabled = laps.length === 0;
+        shareResultsBtn.disabled = laps.length === 0;
+    }
+
+    function updateLapCountBadge() {
+        lapCountBadge.textContent = laps.length;
     }
 
     function startTimer() {
@@ -144,10 +156,14 @@
         renderLaps();
         updateStats();
         updateButtons();
+        updateLapCountBadge();
         saveState();
         playSound('lap');
         if (laps.length > 0) {
-            lapBody.lastElementChild.scrollIntoView({ block: 'end', behavior: 'smooth' });
+            const lastRow = lapBody.lastElementChild;
+            if (lastRow) {
+                lastRow.scrollIntoView({ block: 'end', behavior: 'smooth' });
+            }
         }
     }
 
@@ -161,6 +177,7 @@
         updateDisplay();
         updateButtons();
         updateStats();
+        updateLapCountBadge();
         saveState();
         playSound('reset');
     }
@@ -169,6 +186,7 @@
         lapBody.innerHTML = '';
         if (laps.length === 0) {
             lapCount.textContent = '0';
+            updateLapCountBadge();
             return;
         }
 
@@ -224,6 +242,7 @@
         });
 
         lapCount.textContent = laps.length;
+        updateLapCountBadge();
     }
 
     function updateStats() {
@@ -247,13 +266,13 @@
 
     function copyLaps() {
         if (laps.length === 0) return;
-        let text = 'Calendria Stopwatch - Lap Times\n';
-        text += '='.repeat(30) + '\n\n';
+        let text = 'Athletica Stopwatch - Lap Times\n';
+        text += '================================\n\n';
         laps.forEach(function(lap, index) {
             const diff = index === 0 ? '--' : formatTime(lap.lapTime - laps[index - 1].lapTime);
             text += 'Lap ' + (index + 1) + ': ' + formatTime(lap.lapTime) + ' (Diff: ' + diff + ')\n';
         });
-        text += '\n' + '='.repeat(30) + '\n';
+        text += '\n================================\n';
         text += 'Total Time: ' + formatTime(elapsedTime) + '\n';
         text += 'Total Laps: ' + laps.length;
 
@@ -268,23 +287,51 @@
         });
     }
 
+    function shareResults() {
+        if (laps.length === 0) return;
+        let text = 'Athletica Stopwatch Results\n';
+        text += '================================\n\n';
+        laps.forEach(function(lap, index) {
+            const diff = index === 0 ? '--' : formatTime(lap.lapTime - laps[index - 1].lapTime);
+            text += 'Lap ' + (index + 1) + ': ' + formatTime(lap.lapTime) + ' (Diff: ' + diff + ')\n';
+        });
+        text += '\n================================\n';
+        text += 'Total Time: ' + formatTime(elapsedTime) + '\n';
+        text += 'Total Laps: ' + laps.length;
+
+        if (navigator.share) {
+            navigator.share({
+                title: 'Athletica Stopwatch Results',
+                text: text
+            }).catch(function() {});
+        } else {
+            navigator.clipboard.writeText(text).then(function() {
+                alert('Results copied to clipboard! You can now paste and share.');
+            }).catch(function() {
+                alert('Results:\n\n' + text);
+            });
+        }
+    }
+
     function toggleFullscreen() {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(function() {});
+            fullscreenActive = true;
         } else {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
+                fullscreenActive = false;
             }
         }
     }
 
     function toggleSound() {
-        isSoundOn = !isSoundOn;
-        soundToggle.innerHTML = isSoundOn ? '<i class="bi bi-volume-up-fill"></i>' : '<i class="bi bi-volume-mute-fill"></i>';
+        soundEnabled = !soundEnabled;
+        soundToggleBtn.innerHTML = soundEnabled ? '<i class="bi bi-volume-up-fill"></i>' : '<i class="bi bi-volume-mute-fill"></i>';
     }
 
     function playSound(type) {
-        if (!isSoundOn) return;
+        if (!soundEnabled) return;
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const oscillator = audioCtx.createOscillator();
@@ -323,16 +370,16 @@
                 oscillator.start(audioCtx.currentTime);
                 oscillator.stop(audioCtx.currentTime + 0.2);
             }
-        } catch (e) {
-        }
+        } catch (e) {}
     }
 
     startBtn.addEventListener('click', toggleStart);
     lapBtn.addEventListener('click', recordLap);
     resetBtn.addEventListener('click', resetStopwatch);
     copyLapsBtn.addEventListener('click', copyLaps);
+    shareResultsBtn.addEventListener('click', shareResults);
     fullscreenBtn.addEventListener('click', toggleFullscreen);
-    soundToggle.addEventListener('click', toggleSound);
+    soundToggleBtn.addEventListener('click', toggleSound);
 
     document.addEventListener('keydown', function(e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -369,5 +416,11 @@
                 themeToggle.innerHTML = '<i class="bi bi-sun-fill"></i>';
             }
         });
+
+        if (soundEnabled) {
+            soundToggleBtn.innerHTML = '<i class="bi bi-volume-up-fill"></i>';
+        } else {
+            soundToggleBtn.innerHTML = '<i class="bi bi-volume-mute-fill"></i>';
+        }
     });
 })();
